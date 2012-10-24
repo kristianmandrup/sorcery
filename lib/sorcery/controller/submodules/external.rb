@@ -53,7 +53,7 @@ module Sorcery
             @provider = Config.send(provider)
             @provider.process_callback(params,session)
             @user_hash = @provider.get_user_hash
-            if user = user_class.load_from_provider(provider,@user_hash[:uid].to_s)
+            if user = user_class.load_from_provider(provider,@user_hash[:uid])
               return_to_url = session[:return_to_url]
               reset_session
               session[:return_to_url] = return_to_url
@@ -78,14 +78,10 @@ module Sorcery
             config = user_class.sorcery_config
 
             # first check to see if user has a particular authentication already
-            unless (current_user.send(config.authentications_class.to_s.downcase.pluralize).send("find_by_#{config.provider_attribute_name}_and_#{config.provider_uid_attribute_name}", provider, @user_hash[:uid].to_s))
-              user = current_user.send(config.authentications_class.to_s.downcase.pluralize).build(config.provider_uid_attribute_name => @user_hash[:uid], config.provider_attribute_name => provider_name.to_s)
-              user.save(:validate => false)
-            else
-              user = false
-            end
+            return false if user_class.get_id_from_provider(provider, @user_hash[:uid])
 
-            return user
+            user = current_user.add_provider(provider_name.to_s, @user_hash[:uid])
+            user.save(:validate => false)
           end
 
           # Initialize new user from provider informations.
@@ -100,7 +96,7 @@ module Sorcery
             attrs = user_attrs(@provider.user_info_mapping, @user_hash)
 
             user = user_class.new(attrs)
-            user.send(config.authentications_class.to_s.downcase.pluralize).build(config.provider_uid_attribute_name => @user_hash[:uid], config.provider_attribute_name => provider)
+            user.add_provider(@user_hash[:uid], provider)
 
             session[:incomplete_user] = {
               :provider => {config.provider_uid_attribute_name => @user_hash[:uid], config.provider_attribute_name => provider},
