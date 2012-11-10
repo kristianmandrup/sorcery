@@ -78,9 +78,9 @@ module Sorcery
             config = user_class.sorcery_config
 
             # first check to see if user has a particular authentication already
-            return false if user_class.get_id_from_provider(provider, user_hash[:uid])
+            return false if user_class.get_id_from_provider(provider_name, user_hash[:uid])
 
-            user = current_user.add_provider(provider_name.to_s, @user_hash[:uid])
+            user = current_user.add_provider(provider_name.to_s, user_hash[:uid])
             user.save(:validate => false)
           end
 
