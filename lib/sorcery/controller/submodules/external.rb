@@ -51,7 +51,20 @@ module Sorcery
           def get_user_hash_from(provider_name)
             provider = Config.send(provider_name)
             provider.process_callback(params,session) unless provider.access_token
-            provider.get_user_hash
+            user_hash = provider.get_user_hash
+
+            attrs = {}
+            provider.user_info_mapping.each do |k,v|
+              if (varr = v.split("/")).size > 1
+                attribute_value = varr.inject(user_hash[:user_info]) {|hash, value| hash[value]} rescue nil
+                attribute_value.nil? ? attrs : attrs.merge!(k => attribute_value)
+              else
+                attrs.merge!(k => user_hash[:user_info][v])
+              end
+            end
+            user_hash[:mapped_info] = attr
+
+            user_hash
           end
 
           # tries to login the user from provider's callback
@@ -89,9 +102,8 @@ module Sorcery
           # we store provider/user infos into a session and can be rendered into registration form
           def create_and_validate_from(provider_name)
             user_hash = get_user_hash_from(provider_name)
-            attrs = user_attrs(provider.user_info_mapping, user_hash)
+            user = user_class.new(user_hash[:mapped_info], :without_protection =>true)
 
-            user = user_class.new(attrs)
             user.add_provider(user_hash[:uid], provider)
 
             config = user_class.sorcery_config
@@ -121,8 +133,7 @@ module Sorcery
           #
           def create_from(provider_name)
             user_hash = get_user_hash_from(provider_name)
-            attrs = user_attrs(provider.user_info_mapping, user_hash)
-            user = user_class.new(attrs, :without_protection =>true)
+            user = user_class.new(user_hash[:mapped_info], :without_protection =>true)
             if block_given?
               return false unless yield user
             end
@@ -132,19 +143,6 @@ module Sorcery
               user_class.sorcery_config.authentications_class.create!({config.authentications_user_id_attribute_name => user.id, config.provider_attribute_name => provider_name, config.provider_uid_attribute_name => user_hash[:uid]})
             end
             user
-          end
-
-          def user_attrs(user_info_mapping, user_hash)
-            attrs = {}
-            user_info_mapping.each do |k,v|
-              if (varr = v.split("/")).size > 1
-                attribute_value = varr.inject(user_hash[:user_info]) {|hash, value| hash[value]} rescue nil
-                attribute_value.nil? ? attrs : attrs.merge!(k => attribute_value)
-              else
-                attrs.merge!(k => user_hash[:user_info][v])
-              end
-            end
-            return attrs
           end
         end
       end
