@@ -75,7 +75,6 @@ module Sorcery
             provider = Config.send(provider_name)
             provider.process_callback(params,session)
             user_hash = provider.get_user_hash
-            config = user_class.sorcery_config
 
             # first check to see if user has a particular authentication already
             return false if user_class.get_id_from_provider(provider_name, user_hash[:uid])
