@@ -48,12 +48,16 @@ module Sorcery
             end
           end
 
+          def get_user_hash_from(provider_name)
+            provider = Config.send(provider_name)
+            provider.process_callback(params,session) unless provider.access_token
+            provider.get_user_hash
+          end
+
           # tries to login the user from provider's callback
           def login_from(provider_name)
-            provider = Config.send(provider_name)
-            provider.process_callback(params,session)
-            user_hash = provider.get_user_hash
-            if user = user_class.load_from_provider(provider_name,user_hash[:uid].to_s)
+            user_hash = get_user_hash_from(provider_name)
+            if user = user_class.load_from_provider(provider_name, user_hash[:uid].to_s)
               return_to_url = session[:return_to_url]
               reset_session
               session[:return_to_url] = return_to_url
@@ -71,10 +75,7 @@ module Sorcery
 
           # If user is logged, he can add all available providers into his account
           def add_provider_to_user(provider_name)
-            provider_name = provider_name.to_sym
-            provider = Config.send(provider_name)
-            provider.process_callback(params,session)
-            user_hash = provider.get_user_hash
+            user_hash = get_user_hash_from(provider_name)
 
             # first check to see if user has a particular authentication already
             return false if user_class.get_id_from_provider(provider_name, user_hash[:uid])
@@ -87,16 +88,13 @@ module Sorcery
           # If a provider doesn't give required informations or username/email is already taken,
           # we store provider/user infos into a session and can be rendered into registration form
           def create_and_validate_from(provider_name)
-            provider_name = provider_name.to_sym
-            provider = Config.send(provider_name)
-            user_hash = provider.get_user_hash
-            config = user_class.sorcery_config
-
+            user_hash = get_user_hash_from(provider_name)
             attrs = user_attrs(provider.user_info_mapping, user_hash)
 
             user = user_class.new(attrs)
             user.add_provider(user_hash[:uid], provider)
 
+            config = user_class.sorcery_config
             session[:incomplete_user] = {
               :provider => {config.provider_uid_attribute_name => user_hash[:uid], config.provider_attribute_name => provider_name},
               :user_hash => attrs
@@ -122,11 +120,7 @@ module Sorcery
           #   create_from(provider) {|user| user.some_check }
           #
           def create_from(provider_name)
-            provider_name = provider_name.to_sym
-            provider = Config.send(provider_name)
-            user_hash = provider.get_user_hash
-            config = user_class.sorcery_config
-
+            user_hash = get_user_hash_from(provider_name)
             attrs = user_attrs(provider.user_info_mapping, user_hash)
             user = user_class.new(attrs, :without_protection =>true)
             if block_given?
@@ -134,6 +128,7 @@ module Sorcery
             end
             user_class.transaction do
               user.save(:validate => false)
+              config = user_class.sorcery_config
               user_class.sorcery_config.authentications_class.create!({config.authentications_user_id_attribute_name => user.id, config.provider_attribute_name => provider_name, config.provider_uid_attribute_name => user_hash[:uid]})
             end
             user
