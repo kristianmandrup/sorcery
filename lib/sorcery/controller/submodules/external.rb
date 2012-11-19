@@ -62,7 +62,7 @@ module Sorcery
                 attrs.merge!(k => user_hash[:user_info][v])
               end
             end
-            user_hash[:mapped_info] = attr
+            user_hash[:mapped_info] = attrs
 
             user_hash
           end
