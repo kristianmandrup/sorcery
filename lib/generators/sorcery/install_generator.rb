@@ -97,7 +97,7 @@ module Sorcery
         end
 
         migration_template "mongoid/core.rb", "#{model_file_path}/core.rb"
-        include_mongoid_concerns << "  include Sorcery::ModelConcerns::Core"
+        include_mongoid_concerns << "  include #{model_class_name}::Core"
 
         if submodules
           submodules.each do |submodule|
