@@ -39,15 +39,18 @@ module Sorcery
         unless migrations?
           generate "model #{model_class_name} --skip-migration"
 
-          insert_into_file "#{model_file_path}.rb", "  authenticates_with_sorcery!\n", :after => after_expr
+          # if engine or mismatch with default orm specified
+          gsub_file model_file, model_marker(:active_record) do |match|
+            "\n  #{model_marker}"
+          end
+
+          insert_into_file model_file, "  authenticates_with_sorcery!\n", :after => model_marker
         end
       end
 
       def concerns
         copy_migration_files if migrations?
-        if mongoid?
-          copy_mongoid_concern_files 
-        end
+        copy_mongoid_concern_files if mongoid?
       end
 
       
@@ -65,6 +68,10 @@ module Sorcery
 
       def models_path
         "app/models"
+      end
+
+      def model_file
+        "#{model_file_path}.rb"
       end
 
       def model_file_path
@@ -88,24 +95,24 @@ module Sorcery
       end
 
       def copy_mongoid_concern_files
-        # Copy migration files except when you pass --no-migrations.
-        return if no_migrations?
+        return if migrations?
+
         include_mongoid_concerns = []
 
         if submodules.include? 'external'
-          migration_template "mongoid/authentications.rb", "#{models_path}/authentications.rb"
+          template "mongoid/external.rb", "#{models_path}/authentications.rb"
         end
 
-        migration_template "mongoid/core.rb", "#{model_file_path}/core.rb"
+        template "mongoid/core.rb", "#{model_file_path}/core.rb"
         include_mongoid_concerns << "  include #{model_class_name}::Core"
 
         if submodules
           submodules.each do |submodule|
             unless %w{http_basic_auth session_timeout authentications}.include? submodule
-              migration_template "mongoid/#{submodule}.rb", "#{model_file_path}/#{submodule}.rb"
+              template "mongoid/#{submodule}.rb", "#{model_file_path}/#{submodule}.rb"
             end
 
-            unless submodule == 'authentications'
+            unless submodule == 'external'
               include_mongoid_concerns << "  include #{model_class_name}::#{submodule.to_s.camelize}"
             end
           end
@@ -113,10 +120,10 @@ module Sorcery
 
         concerns_code = include_mongoid_concerns.join "\n"
 
-        insert_into_file "#{model_file_path}.rb", "  #{concerns_code}\n", :after => after_expr
+        insert_into_file "#{model_file_path}.rb", "#{concerns_code}\n", :after => model_marker
 
         if submodules.include? 'external'
-          insert_into_file "#{model_file_path}.rb", "  embeds_many :authentications\n", after: include_mongoid_concerns.last        
+          insert_into_file "#{model_file_path}.rb", "\n  embeds_many :authentications\n", after: include_mongoid_concerns.last
         end
       end
 
@@ -124,28 +131,30 @@ module Sorcery
         orm == :mongoid
       end
 
-      def orm
-        (options[:orm] || 'active_record').to_sym
+      def active_record?
+        orm == :active_record
       end
 
-      def after_expr
-        case orm
+      def orm
+        @orm ||= (options[:orm] || 'active_record').to_sym
+      end
+
+      def model_marker orm_name = nil
+        orm_name ||= orm
+        case orm_name
         when :active_record
-          "class #{model_class_name} < ActiveRecord::Base\n"
+          "< ActiveRecord::Base\n"
         when :mongoid
-          "include Mongoid::Document"
+          "include Mongoid::Document\n"
         when :mongo_mapper
-          "include MongoMapper::Document"
+          "include MongoMapper::Document\n"
         else
           "class #{model_class_name}\n.+\n"
-          say "Attempted code generation in #{model_class_name}"
-          say "Please check generated code in #{model_class_name} for potential syntax error."
-          # raise "ORM #{orm} not yet supported for install generator"
         end
       end
 
       def migrations?
-        options[:migrations]
+        options[:migrations] || active_record?
       end
 
       def no_migrations?
