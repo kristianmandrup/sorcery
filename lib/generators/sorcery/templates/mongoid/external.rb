@@ -1,4 +1,4 @@
-class Authentications
+class Authentication
   include Mongoid::Document
   include Mongoid::Timestamps
 

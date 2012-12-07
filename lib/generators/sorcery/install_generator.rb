@@ -100,7 +100,7 @@ module Sorcery
         include_mongoid_concerns = []
 
         if submodules.include? 'external'
-          template "mongoid/external.rb", "#{models_path}/authentications.rb"
+          template "mongoid/external.rb", "#{models_path}/authentication.rb"
         end
 
         template "mongoid/core.rb", "#{model_file_path}/core.rb"
