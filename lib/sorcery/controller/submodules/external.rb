@@ -142,7 +142,7 @@ module Sorcery
               config = user_class.sorcery_config
               user_class.sorcery_config.authentications_class.create!({config.authentications_user_id_attribute_name => user.id, config.provider_attribute_name => provider_name, config.provider_uid_attribute_name => user_hash[:uid]})
             end
-            user
+            @user
           end
         end
       end

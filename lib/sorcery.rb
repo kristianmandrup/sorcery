@@ -37,6 +37,7 @@ module Sorcery
           autoload :Google, 'sorcery/controller/submodules/external/providers/google'
           autoload :Liveid, 'sorcery/controller/submodules/external/providers/liveid'
           autoload :Linkedin, 'sorcery/controller/submodules/external/providers/linkedin'
+          autoload :Vk, 'sorcery/controller/submodules/external/providers/vk'
         end
       end
     end

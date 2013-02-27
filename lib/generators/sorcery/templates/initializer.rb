@@ -26,6 +26,17 @@ Rails.application.config.sorcery.configure do |config|
   #
   # config.cookie_domain =
 
+  
+  # -- remember_me --
+  # allow the remember_me cookie to settable through AJAX
+  # Default: `true`
+  #
+  # user.remember_me_httponly =
+  
+  # How long in seconds the session length will be
+  # Default: `604800`
+  #
+  # user.remember_me_for =
 
   # -- session timeout --
   # How long in seconds to keep the session alive.
@@ -114,6 +125,11 @@ Rails.application.config.sorcery.configure do |config|
   # config.google.secret = ""
   # config.google.callback_url = "http://0.0.0.0:3000/oauth/callback?provider=google"
   # config.google.user_info_mapping = {:email => "email", :username => "name"}
+  #
+  # config.vk.key = ""
+  # config.vk.secret = ""
+  # config.vk.callback_url = "http://0.0.0.0:3000/oauth/callback?provider=vk"
+  # config.vk.user_info_mapping = {:login => "domain", :name => "full_name"}
   #
   # To use liveid in development mode you have to replace mydomain.com with
   # a valid domain even in development. To use a valid domain in development
