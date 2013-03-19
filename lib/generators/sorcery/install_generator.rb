@@ -7,16 +7,19 @@ module Sorcery
       
       source_root File.expand_path('../templates', __FILE__)
       
-      argument :submodules, :optional => true, :type => :array, :banner => "submodules"
+      argument :submodules, :optional => true, :type => :array, :default => [], :banner => "submodules"
       
       class_option :model, :optional => true, :type => :string, :banner => "model",
                    :desc => "Specify the model class name if you will use anything other than 'User'"
+
+      class_option :concern, :optional => true, :type => :boolean, :default => false, :banner => "concern",
+                   :desc => "Specify if you want to generate a Sorcery concern instead of generating a model"
                            
       class_option :migrations, :optional => true, :type => :boolean, :banner => "migrations",
-                   :desc => "Specify if you want to add submodules to an existing model\n\t\t\t     # (will generate migrations files, and add submodules to config file)"
+                   :desc => "Specify if you want to add submodules to an existing model\n\t\t\t\t\t  # (will generate migrations files, and add submodules to config file)"
       
       class_option :orm, :optional => true, :type => :string, :banner => "ORM to generate models for",
-                   :desc => "Specify which ORM to generate models for"
+                   :desc => "Specify which ORM to generate models for, fx 'mongoid' or 'ar' for Active Record etc."
 
       
       # Copy the initializer file to config/initializers folder.
@@ -26,7 +29,7 @@ module Sorcery
 
       def configure_initializer_file
         # Add submodules to the initializer file.
-        if submodules
+        if submodules?
           submodule_names = submodules.collect{ |submodule| ':' + submodule }
 
           gsub_file "config/initializers/sorcery.rb", /submodules = \[.*\]/ do |str|
@@ -36,7 +39,7 @@ module Sorcery
         end
 
         # Generate the model and add 'authenticates_with_sorcery!' unless you passed --migrations
-        unless migrations?
+        unless concerned? || migrations?
           generate "model #{model_class_name} --skip-migration"
 
           # if engine or mismatch with default orm specified
@@ -45,6 +48,10 @@ module Sorcery
           end
 
           insert_into_file model_file, "  authenticates_with_sorcery!\n", :after => model_marker
+        end
+
+        if concerned?
+          template "concerns/sorcerer.rb", "#{model_file_path}/sorcerer.rb"
         end
       end
 
@@ -66,6 +73,10 @@ module Sorcery
 
       protected
 
+      def concerned?
+        options[:concern]
+      end
+
       def models_path
         "app/models"
       end
@@ -78,6 +89,14 @@ module Sorcery
         "#{models_path}/#{model_class_name.underscore}"
       end
 
+      def submodule_file_path
+        "#{models_path}/sorcery"
+      end
+
+      def concern_ns
+        '::Sorcery'
+      end
+
       # Copy the migrations files to db/migrate folder
       def copy_migration_files
         # Copy migration files except when you pass --no-migrations.
@@ -85,8 +104,8 @@ module Sorcery
 
         migration_template "migration/core.rb", "db/migrate/sorcery_core.rb"
 
-        if submodules
-          submodules.each do |submodule|
+        unless no_submodules?
+          submodule_list.each do |submodule|
             unless submodule == "http_basic_auth" || submodule == "session_timeout" || submodule == "core"
               migration_template "migration/#{submodule}.rb", "db/migrate/sorcery_#{submodule}.rb"
             end
@@ -99,32 +118,56 @@ module Sorcery
 
         include_mongoid_concerns = []
 
-        if submodules.include? 'external'
-          template "mongoid/external.rb", "#{models_path}/authentication.rb"
+        if submodules?
+          if submodules.include? 'external'
+            template "mongoid/external.rb", "#{models_path}/authentication.rb"
+          end
         end
 
-        template "mongoid/core.rb", "#{model_file_path}/core.rb"
-        include_mongoid_concerns << "  include #{model_class_name}::Core"
+        template "mongoid/core.rb", "#{submodule_file_path}/core.rb"
+        include_mongoid_concerns << "  include #{concern_ns}::Core"
 
-        if submodules
-          submodules.each do |submodule|
-            unless %w{http_basic_auth session_timeout authentications}.include? submodule
-              template "mongoid/#{submodule}.rb", "#{model_file_path}/#{submodule}.rb"
+        unless no_submodules?
+          submodule_list.each do |submodule|
+            unless external_module? submodule
+              template "mongoid/#{submodule}.rb", "#{submodule_file_path}/#{submodule}.rb"
             end
 
             unless submodule == 'external'
-              include_mongoid_concerns << "  include #{model_class_name}::#{submodule.to_s.camelize}"
+              include_mongoid_concerns << "  include #{concern_ns}::#{submodule.to_s.camelize}"
             end
           end
         end 
 
         concerns_code = include_mongoid_concerns.join "\n"
+        unless concerned?
+          insert_into_file "#{model_file_path}.rb", "#{concerns_code}\n", :after => model_marker
+        else
+          insert_into_file "#{model_file_path}/sorcerer.rb", "#{concerns_code}\n", :after => '::Core'
+          insert_into_file "#{model_file_path}.rb", "  include #{model_class_name}::Sorcerer", :after => model_marker
+        end
 
-        insert_into_file "#{model_file_path}.rb", "#{concerns_code}\n", :after => model_marker
-
-        if submodules.include? 'external'
+        if submodule_list.include? 'external'
           insert_into_file "#{model_file_path}.rb", "\n  embeds_many :authentications\n", after: include_mongoid_concerns.last
         end
+      end
+
+      def submodules?
+        submodule_list.empty?
+      end
+
+      def submodule_list
+        return [] if no_submodules?        
+        return all_submodules if submodules.first == 'all'
+        submodules
+      end
+
+      def no_submodules?
+        submodules.empty? || submodules.first == 'none'
+      end
+
+      def external_module? submodule
+        %w{http_basic_auth session_timeout authentications}.include? submodule
       end
 
       def mongoid?
@@ -162,6 +205,14 @@ module Sorcery
       end
       
       private
+
+      def all_submodules
+        %w{activity_logging brute_force_protection external remember_me reset_password user_activation}
+      end
+
+      def full_model_class
+        mongoid? ? model_class_name : "#{model_class_name} < ActiveRecord::Base"
+      end
 
       # Either return the model passed in a classified form or return the default "User".
       def model_class_name

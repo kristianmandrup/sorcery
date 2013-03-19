@@ -1,4 +1,4 @@
-class <%= model_class_name %>
+module Sorcery
   module RememberMe
     extend ActiveSupport::Concern
 

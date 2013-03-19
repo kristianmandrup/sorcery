@@ -1,5 +1,5 @@
-class <%= model_class_name %>    
-  module Core
+module Sorcery
+  module BruteForceActivation
     extend ActiveSupport::Concern
 
     include do

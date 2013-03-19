@@ -1,4 +1,4 @@
-class <%= model_class_name %>
+module Sorcery
   module ResetPassword
     extend ActiveSupport::Concern
 
