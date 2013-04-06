@@ -185,23 +185,13 @@ module Sorcery
           #
           #   create_from(provider) {|user| user.some_check }
           #
-<<<<<<< HEAD
+
           def create_from(provider_name)
             user_hash = get_user_hash_from(provider_name)
             user = user_class.new(user_hash[:mapped_info], :without_protection =>true)
             if block_given?
               return false unless yield user
             end
-=======
-          def create_from(provider_name, user_hash = nil)
-            provider_name = provider_name.to_sym
-            provider = Config.send(provider_name)
-            user_hash ||= provider.get_user_hash
-            config = user_class.sorcery_config
-
-            attrs = user_attrs(provider.user_info_mapping, user_hash)
-
->>>>>>> ec97aa5aab02d362bc51acac83b9d13fd1880082
             user_class.transaction do
               user.save(:validate => false)
               config = user_class.sorcery_config
