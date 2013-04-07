@@ -25,7 +25,7 @@ module Sorcery
           end
 
           Config.login_sources << :login_from_access_token
-          Config.after_login << :set_access_token
+          Config.after_login  << :set_access_token
           Config.after_logout << :destroy_access_token
         end
 
@@ -38,7 +38,7 @@ module Sorcery
 
           protected
 
-          # Allow client request iff its access_token is valid,
+          # Allow client request if its access_token is valid,
           # update token last_activity_at (if feature is enabled)
           def login_from_access_token
             @api_access_token = nil
@@ -88,7 +88,7 @@ module Sorcery
               false
             end
           end
-
+          alias_method :reset_authentication_token!, :destroy_access_token
         end
       end
     end
